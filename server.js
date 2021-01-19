@@ -36,24 +36,49 @@ app.get('/', (req, res) => {
   res.send(txthtml);
 });
 
+app.get('/quad', (req, res) => {
+  res.send(' \
+  <form action="/quad/" method="post"> \
+  <label>File to Quad remesh:  </label> \
+  <br /> \
+  <input type="text" name="file_path" style="width: 400px;" value=""> \
+  <br /> \
+  <input type="file" id="myFile" name="filename"> \
+  <br /> \
+  <input type="submit" value="GO"> \
+  </form> \
+  <br /> \
+  <a href="/">Back to remote remesher index.</a> \
+  <br />');
+});
+
 app.get('/instant', (req, res) => {
   res.send(' \
   <form action="/instant/" method="post"> \
-  <label>Enter URL to download:  </label><br /> \
-  <input type="text" name="video_url" style="width: 400px;" value=""> \
-  <br /><input type="checkbox" id="cbpip720" name="pip720" value="yes"> \
-  <label for="cbpip720"> Create 720p version for PIP?</label> \
-  <br /><input type="submit" value="GO"> \
-  </form> \
-  <br /><a href="/instant">Instant Meshes: Submit form...</a> \
+  <label>File to instant remesh:  </label> \
   <br /> \
-  </form>');
+  <input type="text" name="file_path" style="width: 400px;" value=""> \
+  <br /> \
+  <input type="file" id="myFile" name="filename"> \
+  <br /> \
+  <label>Number of vertices:  </label> \
+  <input type="text" name="vertices" value="1000"> \
+  <br /> \
+  <label>Smoothness (default: 2): </label> \
+  <input type="text" name="smooth" value="2"> \
+  <br /> \
+  <input type="submit" value="GO"> \
+  </form> \
+  <br /> \
+  <a href="/">Back to remote remesher index.</a> \
+  <br />');
 });
 
 
 
 app.post('/instant', [
-  body('video_url').isURL()
+  body('vertices').isInt(),
+  body('smooth').isInt()
 ], (req, res) => {
 
     // Extract the validation errors from a request.
@@ -65,8 +90,15 @@ app.post('/instant', [
         indent: '  ',
         singleQuotes: false
       }); 
-      return res.status(422).send("Error: Not a valid URL.<br />" + err + "<br /><a href='/ytdl'>Try again...</a>");
+      return res.status(422).send("Error: Not a number.<br />" + err + "<br /><a href='/instant'>Try again...</a>");
     }
+
+
+    const txthtml = stringifyObject(req.body, {
+      indent: '  ',
+      singleQuotes: false
+    }); 
+    return res.send(txthtml);
 
     // Data from form is valid.
     //let dling = "dling: " + req.body.video_url;
