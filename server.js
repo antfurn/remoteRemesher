@@ -61,11 +61,15 @@ app.get('/instant', (req, res) => {
   <br /> \
   <input type="file" id="myFile" name="filename"> \
   <br /> \
-  <label>Number of vertices:  </label> \
-  <input type="text" name="vertices" value="1000"> \
+  <label>Number of faces:  </label> \
+  <input type="text" name="faces" value="1000"> \
   <br /> \
   <label>Smoothness (default: 2): </label> \
   <input type="text" name="smooth" value="2"> \
+  <br /> \
+  <label>File to instant remesh:  </label> \
+  <br /> \
+  <input type="text" name="file_out_ext" style="width: 400px;" value="_remeshed.obj"> \
   <br /> \
   <input type="submit" value="GO"> \
   </form> \
@@ -77,7 +81,7 @@ app.get('/instant', (req, res) => {
 
 
 app.post('/instant', [
-  body('vertices').isInt(),
+  body('faces').isInt(),
   body('smooth').isInt()
 ], (req, res) => {
 
@@ -93,272 +97,49 @@ app.post('/instant', [
       return res.status(422).send("Error: Not a number.<br />" + err + "<br /><a href='/instant'>Try again...</a>");
     }
 
-
-    const txthtml = stringifyObject(req.body, {
-      indent: '  ',
-      singleQuotes: false
-    }); 
-    return res.send(txthtml);
-
-    // Data from form is valid.
-    //let dling = "dling: " + req.body.video_url;
-    const ytdl_folder = "ytdl";
-
-    if (!fs.existsSync(ytdl_folder)){
-      fs.mkdirSync(ytdl_folder);
+    if (req.body.filename.length == 0 && req.body.file_path.length == 0) {
+      const txthtml = "No file selected.";
+      return res.send(txthtml);
     }
 
-    // Optional arguments passed to youtube-dl.
-    const options = ['-o','ytdl/%(uploader)s/%(title)s-%(id)s.%(ext)s', '--restrict-filenames', '-f','bestvideo+bestaudio'];
-    const voptions = ['-o','ytdl/%(uploader)s/%(title)s-%(id)s.f%(format_id)s.%(ext)s', '--restrict-filenames', '-f','bestvideo'];
-    const aoptions = ['-o','ytdl/%(uploader)s/%(title)s-%(id)s.f%(format_id)s.%(ext)s', '--restrict-filenames','-f','bestaudio'];
-    //, '-f', 'bestvideo[ext=mp4]+bestaudio[ext=m4a]'];//, '-f bestvideo+bestaudio']; //'--username=user', '--password=hunter2'
+    // Get the file name 
+    const remeshFolder = "Nomad/";
+    var targetFilename = req.body.filename;
+    if ( targetFilename.length == 0)
+      targetFilename = req.body.file_path;
 
-    let vidd = {};
-    vidd.req_url = req.body.video_url;
-    vidd.req_pip720 = req.body.pip720;
-    vidd.epoch = {};
-    vidd.epoch.requested = Date.now();
-    vidd.v_pos = 0;
-    vidd.v_percent = 0;
-    vidd.v_status = "waiting";
-    vidd.a_size = -1;
-    vidd.a_pos = 0;
-    vidd.a_percent = 0;
-    vidd.a_status = "waiting";
-    vidd.m_status = "waiting";
-    var db_doc_id = dlsDB.insert( vidd ).$loki;
+    var outputFilename = remeshFolder + targetFilename.substring(0,targetFilename.length-4) + req.body.file_out_ext;
 
-    var video = youtubedl(
-      req.body.video_url,
-      // Optional arguments passed to youtube-dl.
-      voptions
-    );
+    if (!fs.existsSync(remeshFolder + targetFilename)){      
+      const txthtml = "Target file not found: " + remeshFolder + targetFilename;
+      //return res.send(txthtml);
+    }
+
+    // Data from form is valid.
+
+    // const txthtml = stringifyObject(req.body, {
+    //   indent: '  ',
+    //   singleQuotes: false
+    // }); 
+    // return res.send(txthtml);
+
+    //'-c', '0', '-v', '2000', '-S', '2', '-o', 'C:\\Users\\Lesley\\AppData\\Local\\Temp\\out.obj', 'C:\\Users\\Lesley\\AppData\\Local\\Temp\\original.obj']
+    const options = ['-c','0', '-f', req.body.faces, '-S', req.body.smooth, '-o', outputFilename, remeshFolder + targetFilename];
     
-    var vsize = 0
-    var uploader_folder = ""
-    video.on('info', function (vinfo) {
-      'use strict'
-      vsize = vinfo.size;
+    const instantMeshes = exec.spawn('InstantMeshes', options);
 
-      // sort out folder
-      const path_split = vinfo._filename.split(path.sep);
-      uploader_folder = path.join(path_split[0],path_split[1]);
-      if (!fs.existsSync(uploader_folder)){
-        console.log('Creating folder: ' + uploader_folder);
-        fs.mkdirSync(uploader_folder);
-      }
-    
-      console.log('Got video info: ' + vinfo.title + "<br />info._filename: " + vinfo._filename);
-      // Create json obj of the video meta data we want
-      let vidd = dlsDB.get(db_doc_id);
-      vidd.epoch.start = Date.now();
-      vidd.vid_id = vinfo.id;
-      vidd.title = vinfo.title;
-      vidd.uploader = vinfo.uploader;
-      vidd.thumbnail = vinfo.thumbnail;
-      vidd.description = vinfo.description;
-      vidd._filename = vinfo._filename;
-      vidd.filename = path_split[2];
-      vidd.v_format_id = vinfo.format_id;
-      vidd.v_size = vinfo.size;
-
-      
-      //var file = path.join(__dirname, info._filename)
-      video.pipe(fs.createWriteStream(vinfo._filename));
-
-      let txthtml = "";
-      txthtml += '<html>';
-      txthtml += '<head>Starting download of:' + vinfo.title + '</head>';
-      txthtml += '<body>info._filename: ' + vinfo._filename;
-      txthtml += '<br />';
-      txthtml += 'Creating 720p PIP version: ';
-      if (! vidd.req_pip720 ) {
-        txthtml += 'No';
-      } else {
-        txthtml += vidd.req_pip720; }
-      txthtml += '<br />';
-      txthtml += '<br /><a href="/ytdl">Back to submit form...</a>';
-      txthtml += '<br />';
-      txthtml += '<br /><a href="/ytdl/status">Download status...</a>';
-      txthtml += '<br />';
-      txthtml += '<br /><a href="/ytdl/history">Download history...</a>';
-      txthtml += '</body></html>';
-
-      res.send(txthtml);
+    instantMeshes.stdout.on('data', (data) => {
+      console.log(`stdout: ${data}`);
     });
     
-    var vpos = 0
-    video.on('data', function data (vchunk) {
-      'use strict'
-      vpos += vchunk.length;
-    
-      // `size` should not be 0 here.
-      if (vsize) {
-        var percent = ((vpos / vsize) * 100).toFixed(2);
-        let vidd = dlsDB.get(db_doc_id);
-        if ( Math.floor(percent/10.0)-Math.floor(vidd.v_percent/10.0) > 0 ) console.log(' '+percent+'%');
-        vidd.v_status = "downloading";
-        vidd.v_percent = percent;
-        vidd.v_pos = vpos;
-      }
+    instantMeshes.stderr.on('data', (data) => {
+      console.error(`stderr: ${data}`);
     });
-
-    video.on('error', (e) => {
-      let vidd = dlsDB.get(db_doc_id);
-      vidd.v_status = "error";
-      vidd.failed_msg = e;
-      vidd.m_status = "failed";
-      vidd.epoch.end = Date.now();
-
-      console.log('\nVideo Failed with error: ',e);
-    })
     
-    video.on('end', function end () {
-      'use strict'
-      let vidd = dlsDB.get(db_doc_id);
-      // Make sure it go to 100%
-      if (vidd.v_percent < 100.0) {
-        vidd.v_status = "too_short";
-        vidd.m_status = "failed";
-        vidd.epoch.end = Date.now();
-        vidd.failed_msg = 'Errr, video download only ' + vidd.v_percent + '%  Try it again?';
-        console.log('\nError: Video only download: ' + vidd.v_percent + '%');
-
-        fs.rename(vidd._filename, '' + vidd._filename + '.broken', function () {
-          if (vidd.v_percent < 1) {
-            console.log('Trying alternate method:');
-            vidd.v_status = "started";
-            vidd.a_status = "started";
-            vidd.v_percent = "direct method";
-            vidd.a_percent = "progess not reported";
-            vidd.m_status = "waiting";
-            //Rename part file:
-
-            youtubedl.exec(vidd.req_url, ['-f bestvideo+bestaudio'], { cwd: uploader_folder }, function (err, output) {
-              let vidd = dlsDB.get(db_doc_id);
-              if (err) {
-                vidd.v_status = "failed";
-                vidd.a_status = "failed";
-                vidd.m_status = "failed";
-                vidd.epoch.end = Date.now();
-                vidd.failed_msg = 'Errr, Direct download also failed:\n' + err + '\n\n' + output.join('\n');
-                //throw err
-              }
-              console.log(output.join('\n'))
-
-              vidd.v_status = "complete";
-              vidd.a_status = "complete";
-              vidd.m_status = "complete";
-              vidd.epoch.end = Date.now();
-              vidd.failed_msg = 'Had to use the direct download option.';            
-              inMemDB.saveDatabase(); // Force a DB save
-
-              // Sort out permissions
-              fixPermissions(uploader_folder); 
-            })
-          }
-        });
-        return;
-      }
-      // else
-      console.log('\nVideo Done');
-      vidd.v_status = "complete";
-        
-      console.log('\nStart Audio');
-      var audio = youtubedl(
-        req.body.video_url,
-        // Optional arguments passed to youtube-dl.
-        aoptions
-      );
-        
-      var asize = 0
-      audio.on('info', function (ainfo) {
-        'use strict'
-        asize = ainfo.size;
-
-        let vidd = dlsDB.get(db_doc_id);
-        vidd.a_format_id = ainfo.format_id;
-        vidd.a_size = ainfo.size;
-        vidd.a_pos = 0;
-        vidd.a_percent = 0;
-        vidd.a_status = "starting";
-      
-        console.log('Got audio info: ' + ainfo.title + "<br />info._filename: " + ainfo._filename);
-        //res.send("Starting download of: " + info.title + "<br />info._filename: " + info._filename);
-        //var file = path.join(__dirname, info._filename)
-        audio.pipe(fs.createWriteStream(ainfo._filename));
-      });
-
-      audio.on('error', (e) => {
-        let vidd = dlsDB.get(db_doc_id);
-        vidd.a_status = "error";
-        vidd.failed_msg = e;
-        vidd.m_status = "failed";
-        vidd.epoch.end = Date.now();
-  
-        console.log('\nAudio Failed with error: ',e);
-      })
-      
-      var apos = 0
-      audio.on('data', function data (achunk) {
-        'use strict'
-        apos += achunk.length;
-      
-        // `size` should not be 0 here.
-        if (asize) {
-          var percent = ((apos / asize) * 100).toFixed(2);
-          let vidd = dlsDB.get(db_doc_id);
-          if ( Math.floor(percent/10.0)-Math.floor(vidd.a_percent/10.0) > 0 ) console.log(' '+percent+'%');
-          vidd.a_status = "downloading";
-          vidd.a_percent = percent;
-          vidd.a_pos = apos;
-        }
-      });
-      
-      audio.on('end', function end () {
-        'use strict'
-        let vidd = dlsDB.get(db_doc_id);
-        // Make sure it go to 100%
-        if (vidd.a_percent < 100.0) {
-          vidd.a_status = "too_short";
-          vidd.m_status = "failed";
-          vidd.epoch.end = Date.now();
-          vidd.failed_msg = 'Errr, audio download only ' + vidd.a_percent + '%  Try it again?';
-          console.log('\Audio only download: ' + vidd.a_percent + '%');
-          return;
-        }
-        // else
-        console.log('\nAudio Done');
-        vidd.a_status = "complete";
-        vidd.m_status = "started";
-
-        console.log('\nStart merge');
-        youtubedl.exec(req.body.video_url, options, {}, function(err, output) {
-          if (err) {
-            console.log(output.join('\n') + "\n Merged Failed !!!");
-            let vidd = dlsDB.get(db_doc_id);
-            vidd.m_status = "failed";
-            vidd.epoch.end = Date.now();
-            vidd.failed_msg = err;
-            inMemDB.saveDatabase(); // Force a DB save
-
-            throw err
-          } else {
-            //res.send("Finished download ");
-            console.log(output.join('\n') + "\n Download Complete!");
-            let vidd = dlsDB.get(db_doc_id);
-            vidd.m_status = "complete";
-            vidd.epoch.end = Date.now();
-            inMemDB.saveDatabase(); // Force a DB save
-
-            // Sort out permissions
-            fixPermissions(uploader_folder); 
-          }
-        });
-        
-      });
-    });  
+    instantMeshes.on('close', (code) => {
+      console.log(`child process exited with code ${code}`);
+      return res.send("done");
+    });
 });
 
 
@@ -380,8 +161,6 @@ console.log(`Running on http://${HOST}:${PORT}`);
 
 function exitHandler( options, err ) {
   console.log( "exitHandler:: options: ", options );
-
-  inMemDB.saveDatabase(); // Force a DB save
 
   if ( err ) {
     console.log( 'Caught Exception:', err.stack )

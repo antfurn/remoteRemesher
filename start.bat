@@ -1,1 +1,1 @@
-docker run -p 9979:9979 -d -v C:\temp\remoteRemesher:/usr/src/app/remoteRemesher --name remoteRemesher antfurn/remoteRemesher
+docker run -p 9979:9979 -d -v C:\temp\remoteRemesher:/usr/src/app/Nomad --name remoteRemesher antfurn/remote-remesher

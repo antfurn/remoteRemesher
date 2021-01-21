@@ -1,3 +1,3 @@
 #!/usr/bin/env bash
 
-docker build -t antfurn/remoteRemesher .
+docker build -t antfurn/remote-remesher .

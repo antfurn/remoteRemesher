@@ -7,7 +7,6 @@ WORKDIR /usr/src/app
 # A wildcard is used to ensure both package.json AND package-lock.json are copied
 # where available (npm@5+)
 COPY package*.json ./
-ADD instant-meshes-linux.zip ./
 
 RUN apt-get update && apt-get -y install
 RUN npm install
