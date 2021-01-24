@@ -12,6 +12,15 @@
                 "<node_internals>/**"
             ],
             "program": "${workspaceFolder}\\server.js"
+        },
+        {
+            "type": "pwa-node",
+            "request": "launch",
+            "name": "RMesher Windows",
+            "skipFiles": [
+                "<node_internals>/**"
+            ],
+            "program": "${workspaceFolder}\\rmesheswin.js"
         }
     ]
 }
