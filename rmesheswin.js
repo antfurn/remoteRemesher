@@ -25,7 +25,7 @@ app.use(express.json());
 app.get('/', (req, res) => {
   let txthtml = "";
   txthtml += '<html>';
-  txthtml += '<head>Remote remesher tool:</head>';
+  txthtml += '<head>Remote remesher tool [Windows Version]:</head>';
   txthtml += '<body>';
   txthtml += '<br />';
   txthtml += '<br /><a href="/instant">Instant Meshes: Submit form...</a>';
@@ -67,7 +67,7 @@ app.get('/instant', (req, res) => {
   <label>Smoothness (default: 2): </label> \
   <input type="text" name="smooth" value="2"> \
   <br /> \
-  <label>File to instant remesh:  </label> \
+  <label>Output file name addition.extension: </label> \
   <br /> \
   <input type="text" name="file_out_ext" style="width: 400px;" value="_remeshed.obj"> \
   <br /> \
@@ -148,6 +148,8 @@ app.post('/instant', [
     instantMeshes.on('close', (code) => {
       console.log(`child process exited with code ${code}`);
       
+      stdout_html += '<br />'
+      stdout_html += '<a href="/">Back to remote remesher index.</a>'
       stdout_html += '</body></html>';
       return res.send(stdout_html);
     });
